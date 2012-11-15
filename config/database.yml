@@ -1,0 +1,18 @@
+# PostgreSQL. Versions 8.2 and up are supported.
+#
+# Configure Using Gemfile
+# gem 'activerecord-jdbcpostgresql-adapter'
+
+development:
+  adapter: postgresql
+  encoding: unicode
+  database: jruby_development
+  username: postgres
+  password: postgres
+
+test:
+  adapter: postgresql
+  encoding: unicode
+  database: jruby_test
+  username: postgres
+  password: postgres
