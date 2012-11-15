@@ -1,261 +1,211 @@
-== Welcome to Rails
+# JRuby boot time optimizations
 
-Rails is a web-application framework that includes everything needed to create
-database-backed web applications according to the Model-View-Control pattern.
+Using JRuby 1.7.0:
 
-This pattern splits the view (also called the presentation) into "dumb"
-templates that are primarily responsible for inserting pre-built data in between
-HTML tags. The model contains the "smart" domain objects (such as Account,
-Product, Person, Post) that holds all the business logic and knows how to
-persist themselves to a database. The controller handles the incoming requests
-(such as Save New Account, Update Product, Show Post) by manipulating the model
-and directing data to the view.
+    $ ruby -v
+    jruby 1.7.0 (1.9.3p203) 2012-10-22 ff1ebbe on Java HotSpot(TM) 64-Bit Server VM 1.7.0_09-b05 [darwin-x86_64]
 
-In Rails, the model is handled by what's called an object-relational mapping
-layer entitled Active Record. This layer allows you to present the data from
-database rows as objects and embellish these data objects with business logic
-methods. You can read more about Active Record in
-link:files/vendor/rails/activerecord/README.html.
+Compared to MRI:
 
-The controller and view are handled by the Action Pack, which handles both
-layers by its two parts: Action View and Action Controller. These two layers
-are bundled in a single package due to their heavy interdependence. This is
-unlike the relationship between the Active Record and Action Pack that is much
-more separate. Each of these packages can be used independently outside of
-Rails. You can read more about Action Pack in
-link:files/vendor/rails/actionpack/README.html.
+    ruby 1.9.3p327 (2012-11-10 revision 37606) [x86_64-darwin12.2.0]
+
+    $ time bundle exec rake spec bundle exec rake spec  3,99s user 0,51s system 87% cpu 5,114 total
 
 
-== Getting Started
+## Vanilla Rails Application
 
-1. At the command prompt, create a new Rails application:
-       <tt>rails new myapp</tt> (where <tt>myapp</tt> is the application name)
+Generated Rails application with:
 
-2. Change directory to <tt>myapp</tt> and start the web server:
-       <tt>cd myapp; rails server</tt> (run with --help for options)
+    $ rails new jruby-boot --skip-bundle --database jdbcpostgresql --skip-test-unit
+    $ cd jruby-boot
+    $ bundle install
+    $ rails g rspec:install
+    $ rake db:create db:migrate
 
-3. Go to http://localhost:3000/ and you'll see:
-       "Welcome aboard: You're riding Ruby on Rails!"
+## Running RSpec
 
-4. Follow the guidelines to start developing your application. You can find
-the following resources handy:
+Average benchmark results.
 
-* The Getting Started Guide: http://guides.rubyonrails.org/getting_started.html
-* Ruby on Rails Tutorial Book: http://www.railstutorial.org/
+### JRuby
 
+Commands:
 
-== Debugging Rails
+    $ time bundle exec rake spec
+    bundle exec rake spec  85,51s user 4,56s system 201% cpu 44,723 total
 
-Sometimes your application goes wrong. Fortunately there are a lot of tools that
-will help you debug it and get it back on the rails.
+    $ time rake spec
+    rake spec  69,84s user 3,66s system 198% cpu 37,062 total
 
-First area to check is the application log files. Have "tail -f" commands
-running on the server.log and development.log. Rails will automatically display
-debugging and runtime information to these files. Debugging info will also be
-shown in the browser on requests from 127.0.0.1.
+    $ time bundle exec rspec spec
+    bundle exec rspec spec  51,26s user 2,51s system 190% cpu 28,248 total
 
-You can also log your own messages directly into the log file from your code
-using the Ruby logger class from inside your controllers. Example:
+    $ time rspec spec
+    rspec spec  33,84s user 1,80s system 193% cpu 18,385 total
 
-  class WeblogController < ActionController::Base
-    def destroy
-      @weblog = Weblog.find(params[:id])
-      @weblog.destroy
-      logger.info("#{Time.now} Destroyed Weblog ID ##{@weblog.id}!")
-    end
-  end
+### JRuby + Spork
 
-The result will be a message in your log file along the lines of:
+Commands:
 
-  Mon Oct 08 14:22:29 +1000 2007 Destroyed Weblog ID #1!
+    $ bundle exec spork
 
-More information on how to use the logger is at http://www.ruby-doc.org/core/
+    $ time bundle exec rake spec
+    bundle exec rake spec  69,67s user 3,28s system 174% cpu 41,905 total
 
-Also, Ruby documentation can be found at http://www.ruby-lang.org/. There are
-several books available online as well:
+    $ time rake spec
+    rake spec  51,54s user 2,31s system 190% cpu 28,231 total
 
-* Programming Ruby: http://www.ruby-doc.org/docs/ProgrammingRuby/ (Pickaxe)
-* Learn to Program: http://pine.fm/LearnToProgram/ (a beginners guide)
+    $ time bundle exec rspec spec
+    bundle exec rspec spec  34,76s user 1,19s system 193% cpu 18,615 total
 
-These two books will bring you up to speed on the Ruby language and also on
-programming in general.
+    $ time rspec spec
+    rspec spec  21,46s user 0,72s system 131% cpu 16,836 total
 
+Output when running `rake`:
 
-== Debugger
+    .
 
-Debugger support is available through the debugger command when you start your
-Mongrel or WEBrick server with --debugger. This means that you can break out of
-execution at any point in the code, investigate and change the model, and then,
-resume execution! You need to install ruby-debug to run the server in debugging
-mode. With gems, use <tt>sudo gem install ruby-debug</tt>. Example:
+    Finished in 0.313 seconds
+    1 example, 0 failures
 
-  class WeblogController < ActionController::Base
-    def index
-      @posts = Post.all
-      debugger
-    end
-  end
+    Randomized with seed 43913
 
-So the controller will accept the action, run the first line, then present you
-with a IRB prompt in the server window. Here you can do things like:
+      <-- Slave(1) run done!
+    rake aborted!
+    /Users/filiptepper/.rvm/rubies/jruby-1.7.0/bin/jruby -S rspec ./spec/example_spec.rb failed
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/rspec-core-2.12.0/lib/rspec/core/rake_task.rb:154:in `run_task'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/rspec-core-2.12.0/lib/rspec/core/rake_task.rb:122:in `initialize'
+    org/jruby/RubyBasicObject.java:1673:in `__send__'
+    org/jruby/RubyKernel.java:2081:in `send'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/rspec-core-2.12.0/lib/rspec/core/rake_task.rb:120:in `initialize'
+    org/jruby/RubyProc.java:249:in `call'
+    org/jruby/RubyArray.java:1612:in `each'
+    org/jruby/RubyArray.java:1612:in `each'
+    org/jruby/RubyKernel.java:1045:in `load'
+    org/jruby/RubyKernel.java:1065:in `eval'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/bin/ruby_noexec_wrapper:14:in `(root)'
+    Tasks: TOP => spec
+    (See full trace by running task with --trace)
 
-  >> @posts.inspect
-  => "[#<Post:0x14a6be8
-          @attributes={"title"=>nil, "body"=>nil, "id"=>"1"}>,
-       #<Post:0x14a6620
-          @attributes={"title"=>"Rails", "body"=>"Only ten..", "id"=>"2"}>]"
-  >> @posts.first.title = "hello from a debugger"
-  => "hello from a debugger"
+Prefork is run after every test (it doesn't happen with MRI).
 
-...and even better, you can examine how your runtime objects actually work:
+### JRuby + Nailgun
 
-  >> f = @posts.first
-  => #<Post:0x13630c4 @attributes={"title"=>nil, "body"=>nil, "id"=>"1"}>
-  >> f.
-  Display all 152 possibilities? (y or n)
+Commands:
 
-Finally, when you're ready to resume execution, you can enter "cont".
+    $ ruby --ng-server
 
+    # Nailgun exits after running spec, rspec output goes to terminal running ng-server
+    $ time ruby --ng -S bundle exec rake spec
+    ruby --ng -S bundle exec rake spec  0,00s user 0,00s system 0% cpu 47,999 total
 
-== Console
+    $ time ruby --ng -S rake spec
+    ruby --ng -S rake spec  0,00s user 0,00s system 0% cpu 49,603 total
 
-The console is a Ruby shell, which allows you to interact with your
-application's domain model. Here you'll have all parts of the application
-configured, just like it is when the application is running. You can inspect
-domain models, change values, and save to the database. Starting the script
-without arguments will launch it in the development environment.
+    # Nailgun exits after running spec, rspec output goes to terminal running ng-server
+    $ time ruby --ng -S bundle exec rspec spec
+    ruby --ng -S bundle exec rspec spec  0,00s user 0,00s system 0% cpu 27,415 total
 
-To start the console, run <tt>rails console</tt> from the application
-directory.
+    $ time ruby --ng -S rspec spec
+    ruby --ng -S rspec spec  0,00s user 0,00s system 0% cpu 22,526 total
 
-Options:
+Output when running `time ruby --ng -S rake spec` more than once:
 
-* Passing the <tt>-s, --sandbox</tt> argument will rollback any modifications
-  made to the database.
-* Passing an environment name as an argument will load the corresponding
-  environment. Example: <tt>rails console production</tt>.
+    rake aborted!
+    ActiveRecord::JDBCError: ERROR: database "jruby_test" is being accessed by other users
+      Detail: There are 1 other session(s) using the database.: DROP DATABASE IF EXISTS "jruby_test"
+    arjdbc/jdbc/RubyJdbcConnection.java:191:in `execute'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/activerecord-jdbc-adapter-1.2.2.1/lib/arjdbc/jdbc/adapter.rb:219:in `_execute'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/activerecord-jdbc-adapter-1.2.2.1/lib/arjdbc/jdbc/adapter.rb:211:in `execute'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/activerecord-3.2.9/lib/active_record/connection_adapters/abstract_adapter.rb:280:in `log'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/activesupport-3.2.9/lib/active_support/notifications/instrumenter.rb:20:in `instrument'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/activerecord-3.2.9/lib/active_record/connection_adapters/abstract_adapter.rb:275:in `log'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/activerecord-jdbc-adapter-1.2.2.1/lib/arjdbc/jdbc/adapter.rb:211:in `execute'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/activerecord-jdbc-adapter-1.2.2.1/lib/arjdbc/postgresql/adapter.rb:479:in `drop_database'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/activerecord-3.2.9/lib/active_record/railties/databases.rake:608:in `drop_database'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/activerecord-3.2.9/lib/active_record/railties/databases.rake:517:in `(root)'
+    org/jruby/RubyProc.java:249:in `call'
+    org/jruby/RubyArray.java:1612:in `each'
+    org/jruby/RubyArray.java:1612:in `each'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/activerecord-3.2.9/lib/active_record/railties/databases.rake:544:in `(root)'
+    org/jruby/RubyProc.java:249:in `call'
+    org/jruby/RubyArray.java:1612:in `each'
+    org/jruby/RubyArray.java:1612:in `each'
+    org/jruby/RubyArray.java:1612:in `each'
+    org/jruby/RubyKernel.java:1045:in `load'
+    Tasks: TOP => db:test:load => db:test:purge
+    (See full trace by running task with --trace)
 
-To reload your controllers and models after launching the console run
-<tt>reload!</tt>
+### JRuby + Nailgun + Spork
 
-More information about irb can be found at:
-link:http://www.rubycentral.org/pickaxe/irb.html
+Commands:
 
+    $ ruby --ng-server
+    $ spork
 
-== dbconsole
+    # Nailgun exits after running spec, rspec output goes to terminal running ng-server
+    $ time ruby --ng -S bundle exec rake spec
+    ruby --ng -S bundle exec rake spec  0,00s user 0,00s system 0% cpu 30,581 total
 
-You can go to the command line of your database directly through <tt>rails
-dbconsole</tt>. You would be connected to the database with the credentials
-defined in database.yml. Starting the script without arguments will connect you
-to the development database. Passing an argument will connect you to a different
-database, like <tt>rails dbconsole production</tt>. Currently works for MySQL,
-PostgreSQL and SQLite 3.
+    $ time ruby --ng -S rake spec
+    ruby --ng -S rake spec  0,00s user 0,00s system 0% cpu 33,481 total
 
-== Description of Contents
+    # Nailgun exits after running spec, rspec output goes to terminal running ng-server
+    $ time ruby --ng -S bundle exec rspec spec
+    ruby --ng -S bundle exec rspec spec  0,00s user 0,00s system 0% cpu 9,924 total
 
-The default directory structure of a generated Ruby on Rails application:
+    $ time ruby --ng -S rspec spec
+    ruby --ng -S rspec spec  0,00s user 0,00s system 0% cpu 3,246 total
 
-  |-- app
-  |   |-- assets
-  |       |-- images
-  |       |-- javascripts
-  |       `-- stylesheets
-  |   |-- controllers
-  |   |-- helpers
-  |   |-- mailers
-  |   |-- models
-  |   `-- views
-  |       `-- layouts
-  |-- config
-  |   |-- environments
-  |   |-- initializers
-  |   `-- locales
-  |-- db
-  |-- doc
-  |-- lib
-  |   `-- tasks
-  |-- log
-  |-- public
-  |-- script
-  |-- test
-  |   |-- fixtures
-  |   |-- functional
-  |   |-- integration
-  |   |-- performance
-  |   `-- unit
-  |-- tmp
-  |   |-- cache
-  |   |-- pids
-  |   |-- sessions
-  |   `-- sockets
-  `-- vendor
-      |-- assets
-          `-- stylesheets
-      `-- plugins
+Output in `ng-server` after running `time ruby --ng -S bundle exec rake spec`:
 
-app
-  Holds all the code that's specific to this particular application.
+    .
 
-app/assets
-  Contains subdirectories for images, stylesheets, and JavaScript files.
+    Finished in 0.229 seconds
+    1 example, 0 failures
 
-app/controllers
-  Holds controllers that should be named like weblogs_controller.rb for
-  automated URL mapping. All controllers should descend from
-  ApplicationController which itself descends from ActionController::Base.
+    Randomized with seed 55397
 
-app/models
-  Holds models that should be named like post.rb. Models descend from
-  ActiveRecord::Base by default.
+      <-- Slave(2) run done!
+    rake aborted!
+    /Users/filiptepper/.rvm/rubies/jruby-1.7.0/bin/jruby -S rspec ./spec/example_spec.rb failed
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/rspec-core-2.12.0/lib/rspec/core/rake_task.rb:154:in `run_task'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/rspec-core-2.12.0/lib/rspec/core/rake_task.rb:122:in `initialize'
+    org/jruby/RubyBasicObject.java:1673:in `__send__'
+    org/jruby/RubyKernel.java:2081:in `send'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/rspec-core-2.12.0/lib/rspec/core/rake_task.rb:120:in `initialize'
+    org/jruby/RubyProc.java:249:in `call'
+    org/jruby/RubyArray.java:1612:in `each'
+    org/jruby/RubyArray.java:1612:in `each'
+    org/jruby/RubyKernel.java:1045:in `load'
+    org/jruby/RubyKernel.java:1065:in `eval'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/bin/ruby_noexec_wrapper:14:in `(root)'
+    Tasks: TOP => spec
+    (See full trace by running task with --trace)
 
-app/views
-  Holds the template files for the view that should be named like
-  weblogs/index.html.erb for the WeblogsController#index action. All views use
-  eRuby syntax by default.
+Output after running `time ruby --ng -S rake spec`:
 
-app/views/layouts
-  Holds the template files for layouts to be used with views. This models the
-  common header/footer method of wrapping views. In your views, define a layout
-  using the <tt>layout :default</tt> and create a file named default.html.erb.
-  Inside default.html.erb, call <% yield %> to render the view using this
-  layout.
+    .
 
-app/helpers
-  Holds view helpers that should be named like weblogs_helper.rb. These are
-  generated for you automatically when using generators for controllers.
-  Helpers can be used to wrap functionality for your views into methods.
+    Finished in 0.207 seconds
+    1 example, 0 failures
 
-config
-  Configuration files for the Rails environment, the routing map, the database,
-  and other dependencies.
+    Randomized with seed 24351
 
-db
-  Contains the database schema in schema.rb. db/migrate contains all the
-  sequence of Migrations for your schema.
+      <-- Slave(2) run done!
+    rake aborted!
+    /Users/filiptepper/.rvm/rubies/jruby-1.7.0/bin/jruby -S rspec ./spec/example_spec.rb failed
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/rspec-core-2.12.0/lib/rspec/core/rake_task.rb:154:in `run_task'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/rspec-core-2.12.0/lib/rspec/core/rake_task.rb:122:in `initialize'
+    org/jruby/RubyBasicObject.java:1673:in `__send__'
+    org/jruby/RubyKernel.java:2081:in `send'
+    /Users/filiptepper/.rvm/gems/jruby-1.7.0@boot/gems/rspec-core-2.12.0/lib/rspec/core/rake_task.rb:120:in `initialize'
+    org/jruby/RubyProc.java:249:in `call'
+    org/jruby/RubyArray.java:1612:in `each'
+    org/jruby/RubyArray.java:1612:in `each'
+    org/jruby/RubyKernel.java:1045:in `load'
+    Tasks: TOP => spec
+    (See full trace by running task with --trace)
 
-doc
-  This directory is where your application documentation will be stored when
-  generated using <tt>rake doc:app</tt>
+Output after running `time ruby --ng -S rspec spec`:
 
-lib
-  Application specific libraries. Basically, any kind of custom code that
-  doesn't belong under controllers, models, or helpers. This directory is in
-  the load path.
-
-public
-  The directory available for the web server. Also contains the dispatchers and the
-  default HTML files. This should be set as the DOCUMENT_ROOT of your web
-  server.
-
-script
-  Helper scripts for automation and generation.
-
-test
-  Unit and functional tests along with fixtures. When using the rails generate
-  command, template test files will be generated for you and placed in this
-  directory.
-
-vendor
-  External libraries that the application depends on. Also includes the plugins
-  subdirectory. If the app has frozen rails, those gems also go here, under
-  vendor/rails/. This directory is in the load path.
+    org.jruby.exceptions.RaiseException: (SystemExit) exit
